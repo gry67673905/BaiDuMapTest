@@ -1,21 +1,14 @@
 name: Run BaiduMap Tests
-
-on:
-  workflow_dispatch:
+on: { workflow_dispatch: {} }
 
 jobs:
   run:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
 
       - name: Install dependencies
         run: |
@@ -23,7 +16,7 @@ jobs:
           pip install selenium pytest
 
       - name: Patch test for CI (headless + Selenium Manager)
-        run: python ci_patch_and_run.py
+        run: python ci_patch_and_run_fixed.py
 
       - name: Run pytest
         run: python -m pytest -s ci_test_BaiDuMap.py
@@ -50,3 +43,4 @@ jobs:
             screenshots.zip
             BaiDuMap_测试用例_提交版.xlsx
           if-no-files-found: warn
+
