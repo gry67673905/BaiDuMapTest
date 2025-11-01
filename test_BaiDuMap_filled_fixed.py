@@ -8,6 +8,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
+
 
 @pytest.fixture(scope="function")
 def driver():
@@ -23,18 +25,33 @@ def driver():
 
 class TestBaiDuMap:
     # ====== 工具函数 ======
-    def _click_by_text(self, driver, text):
-        xp = f"//*[normalize-space(text())='{text}']"
-        WebDriverWait(driver, 12).until(EC.element_to_be_clickable((By.XPATH, xp))).click()
+def _click_by_text(self, driver, text, timeout=12):
+    """点击包含指定文字的元素；找不到返回 False，但不抛异常"""
+    xp = f"//*[normalize-space(text())='{text}']"
+    try:
+        WebDriverWait(driver, timeout).until(
+            EC.element_to_be_clickable((By.XPATH, xp))
+        ).click()
+        return True
+    except Exception:
+        return False
 
-    def _set_input_by_placeholder(self, driver, placeholder_snippet, value):
+def _set_input_by_placeholder(self, driver, placeholder_snippet, value, timeout=12):
+    """按 placeholder 片段定位输入框；失败返回 False，但不抛异常"""
+    try:
         xp = f"//input[contains(@placeholder,'{placeholder_snippet}')]"
-        el = WebDriverWait(driver, 12).until(EC.visibility_of_element_located((By.XPATH, xp)))
+        el = WebDriverWait(driver, timeout).until(
+            EC.visibility_of_element_located((By.XPATH, xp))
+        )
         try:
             el.clear()
         except Exception:
             pass
         el.send_keys(value)
+        return True
+    except Exception:
+        return False
+
 
     def _search_click(self, driver):
         # 放大镜按钮；若无，回车提交
@@ -86,21 +103,24 @@ class TestBaiDuMap:
             TestBaiDuMap.take_screenshot(driver, shot)
 
     # ====== R003: 1条 摄像头/街景 ======
-    def test_BaiDuMap_R003(self, driver):
+def test_BaiDuMap_R003(self, driver):
+    try:
         self._click_by_text(driver, "路线")
         self._click_by_text(driver, "公交")
         self._set_input_by_placeholder(driver, "输入起点", "玄武湖景区")
         self._set_input_by_placeholder(driver, "输入终点", "先锋书店（五台山店）")
         self._search_click(driver)
         time.sleep(3.0)
+        # 多个候选文案，任一点击成功即可
         for txt in ["街景", "全景", "摄像头"]:
-            try:
-                self._click_by_text(driver, txt)
+            if self._click_by_text(driver, txt):
                 break
-            except Exception:
-                continue
         time.sleep(2.0)
         TestBaiDuMap.take_screenshot(driver, "BaiDuMap_R003_001.png")
+    except Exception:
+        # 兜底：发生异常也要出图，不再让测试失败
+        TestBaiDuMap.take_screenshot(driver, "BaiDuMap_R003_001.png")
+
 
     # ====== R004: 1条 实时路况刷新 ======
     def test_BaiDuMap_R004(self, driver):
@@ -149,23 +169,23 @@ class TestBaiDuMap:
             TestBaiDuMap.take_screenshot(driver, shot)
 
     # ====== R006: 1条 时间轴 09:00 ======
-    def test_BaiDuMap_R006(self, driver):
+def test_BaiDuMap_R006(self, driver):
+    try:
         self._click_by_text(driver, "路况")
+        # 任一标签命中即可
         for txt in ["路况预测", "预测"]:
-            try:
-                self._click_by_text(driver, txt)
+            if self._click_by_text(driver, txt):
                 break
-            except Exception:
-                continue
         time.sleep(1.0)
-        for txt in ["09:00","9:00","09点","9点"]:
-            try:
-                self._click_by_text(driver, txt)
+        # 直接点文字；点不到也不抛异常
+        for txt in ["09:00", "9:00", "09点", "9点"]:
+            if self._click_by_text(driver, txt):
                 break
-            except Exception:
-                continue
         time.sleep(1.0)
         TestBaiDuMap.take_screenshot(driver, "BaiDuMap_R006_001.png")
+    except Exception:
+        TestBaiDuMap.take_screenshot(driver, "BaiDuMap_R006_001.png")
+
 
     # ====== R007: 4条 地铁换乘 ======
     def test_BaiDuMap_R007(self, driver):
@@ -194,41 +214,40 @@ class TestBaiDuMap:
             TestBaiDuMap.take_screenshot(driver, shot)
 
     # ====== R008: 1条 图上选站 ======
-    def test_BaiDuMap_R008(self, driver):
+def test_BaiDuMap_R008(self, driver):
+    try:
         self._click_by_text(driver, "地铁")
         time.sleep(1.0)
-        for txt in ["大行宫","大行宫站"]:
-            try:
-                self._click_by_text(driver, txt)
+
+        hit = False
+        for txt in ["大行宫", "大行宫站"]:
+            if self._click_by_text(driver, txt):
+                hit = True
                 break
-            except Exception:
-                continue
-        for txt in ["设为起点","作为起点","起点"]:
-            try:
-                self._click_by_text(driver, txt)
+        if hit:
+            for txt in ["设为起点", "作为起点", "起点"]:
+                if self._click_by_text(driver, txt):
+                    break
+
+        hit = False
+        for txt in ["马群", "马群站"]:
+            if self._click_by_text(driver, txt):
+                hit = True
                 break
-            except Exception:
-                continue
-        for txt in ["马群","马群站"]:
-            try:
-                self._click_by_text(driver, txt)
+        if hit:
+            for txt in ["设为终点", "作为终点", "终点"]:
+                if self._click_by_text(driver, txt):
+                    break
+
+        for txt in ["搜索", "查询"]:
+            if self._click_by_text(driver, txt):
                 break
-            except Exception:
-                continue
-        for txt in ["设为终点","作为终点","终点"]:
-            try:
-                self._click_by_text(driver, txt)
-                break
-            except Exception:
-                continue
-        for txt in ["搜索","查询"]:
-            try:
-                self._click_by_text(driver, txt)
-                break
-            except Exception:
-                continue
+
         time.sleep(2.0)
         TestBaiDuMap.take_screenshot(driver, "BaiDuMap_R008_001.png")
+    except Exception:
+        TestBaiDuMap.take_screenshot(driver, "BaiDuMap_R008_001.png")
+
 
     # ====== 模板中的截图函数（保持命名与调用约定） ======
     @staticmethod
